@@ -7,12 +7,45 @@ import re
 
 
 class Sequence:
-    def __init__(self, sequence: str = "", *args, **kwargs):
+    def __init__(self, sequence: str = "", kmer_length: int = 3, *args, **kwargs):
         self.sequence = sequence
-        
+        self.kmer_length = kmer_length
+        self.kmers = [] # Intializes to an empty list
+    
     @property
     def sequence(self) -> str:
-        return self.sequence
+        return self._sequence
+
+    @property
+    def length(self) -> int:
+        return len(self._sequence)
+        
+    @sequence.setter
+    def sequence(self, sequence):
+        self._sequence = self.validate_sequence(sequence)
+        
+    @staticmethod
+    def validate_sequence(sequence: str) -> str:
+        sequence = sequence.upper()
+        
+        pattern = r"^[A-Z]+$"
+        validated_sequence = re.sub(r"\s+", "", sequence)
+
+        if not re.fullmatch(pattern, validated_sequence):
+            raise ValueError(f"You can only use standard DNA, RNA, or Protein sequences")
+
+        return validated_sequence
+    
+    def make_kmers(self):
+        # Makes overlapping kmers of a given length
+        self.kmers = [self.sequence[i:i+self.kmer_length] for i in range(self.length - self.kmer_length + 1)]
+        
+        return self.kmers
+    
+    def fasta(self):
+        # Returns a fasta formatted string
+        pass
+
     
 
 class DNA(Sequence):
@@ -74,8 +107,10 @@ class TableOfValues:
     
 
 def main():
-    pass
-
+    query = "To be or not to be that is the question"
+    seq = Sequence(query)
+    print(seq.sequence)
+    print(seq.make_kmers())
 
 if __name__ == '__main__':
     main()
