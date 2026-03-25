@@ -8,7 +8,7 @@ import re
 
 class Sequence:
     def __init__(self, sequence: str = "", *args, **kwargs):
-        self._sequence_id = None
+        self.sequence_id = None
         self.kmers = []
         self.sequence = sequence
     
@@ -22,21 +22,26 @@ class Sequence:
     
     @sequence.setter
     def sequence(self, sequence):
-        id, parsed_seq = self.parse_fasta(sequence)
-        self._sequence = self.validate_sequence(parsed_seq)
-                    
+        if not isinstance(sequence, str):
+            raise TypeError("Not a string input.")
+        
+        if sequence.strip().startswith(">"):            
+            seq_id, parsed_seq = self.parse_fasta(sequence)
+            self._sequence = self.validate_sequence(parsed_seq)
+        else:
+            self._sequence = self.validate_sequence(sequence)
+                             
     @staticmethod
     def validate_sequence(sequence: str) -> str:
-            
-        sequence = sequence.upper().strip()
+        
+        sequence = sequence.upper()
         
         pattern = r"^[>A-Z]+$"
-        multi_record_pattern = r"^[A-Z]+\n>"
         validated_sequence = re.sub(r"\s+", "", sequence)
 
         if not re.fullmatch(pattern, validated_sequence):
             raise ValueError(f"Unknown sequence format. Use FASTA with newline characters or raw sequence")
-
+        
         return validated_sequence
     
     def make_kmers(self, kmer_length: int = 3,):
@@ -51,23 +56,39 @@ class Sequence:
             raise ValueError("Multi-record FASTA not supported")
         
         for i in re_match:
-            self._sequence_id = i[0]
+            self.sequence_id = i[0]
             sequence = i[1]
         
-        return self._sequence_id, sequence
+        return self.sequence_id, sequence
             
     def fasta(self):
         # Returns a fasta formatted string
-        if self._sequence_id is None:
+        if self.sequence_id is None:
             print(f">{self.sequence}")
         else:
-            print(f">{self._sequence_id}\n{self.sequence}")
+            print(f">{self.sequence_id}\n{self.sequence}")
 
 
 class DNA(Sequence):
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, sequence: str = "", *args, **kwargs):
+        super().__init__(sequence, *args, **kwargs)
+        
+    def validate_sequence(self, sequence: str) -> str:
+        sequence = super().validate_sequence(sequence)
+        sequence = re.sub("[^ATGCU]", 'N', sequence)
+        
+        return sequence
+    
+    def reverse_complement(self) -> str:
+        complement_dictionary = str.maketrans("ATGC", "TACG")
+        complement = self.sequence.translate(complement_dictionary)
+        reverse_complement = complement[::-1]
 
+        return reverse_complement
+    
+    def print_info(self):
+        print(f"{self.sequence}")        
+        
 class RNA(Sequence):
     def __init__(self, *args, **kwargs):
         pass
@@ -128,12 +149,19 @@ def main():
     >OX724082.1 Severe acute respiratory syndrome coronavirus 2 genome assembly, complete genome: monopartite
     AGATCTGTTCTCTAAACGAACTTTAAAATCTGTGTGGCTGTCACTCGGCTGCATGCTTAGTGCACTCACG
     """
-    seq = Sequence(query)
-    seq.fasta()
     
-    k = 10
-    kmers = seq.make_kmers(k)
-    print(kmers)
+    query1 = "GATTACA"
+    
+    k = 3
+    # kmers: list = seq.make_kmers(k)
+    # print(kmers)
+    
+    dna = DNA("GATTACA")
+    
+    reverse_complement = dna.reverse_complement()
+    print(reverse_complement)
 
+    print(dna.print_info())
+    
 if __name__ == '__main__':
     main()
