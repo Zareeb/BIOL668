@@ -7,10 +7,10 @@ import re
 
 
 class Sequence:
-    def __init__(self, sequence: str = "", kmer_length: int = 3, *args, **kwargs):
+    def __init__(self, sequence: str = "", *args, **kwargs):
+        self._sequence_id = None
+        self.kmers = []
         self.sequence = sequence
-        self.kmer_length = kmer_length
-        self.kmers = [] # Intializes to an empty list
     
     @property
     def sequence(self) -> str:
@@ -19,34 +19,50 @@ class Sequence:
     @property
     def length(self) -> int:
         return len(self._sequence)
-        
+    
     @sequence.setter
     def sequence(self, sequence):
-        self._sequence = self.validate_sequence(sequence)
-        
+        id, parsed_seq = self.parse_fasta(sequence)
+        self._sequence = self.validate_sequence(parsed_seq)
+                    
     @staticmethod
     def validate_sequence(sequence: str) -> str:
-        sequence = sequence.upper()
+            
+        sequence = sequence.upper().strip()
         
-        pattern = r"^[A-Z]+$"
+        pattern = r"^[>A-Z]+$"
+        multi_record_pattern = r"^[A-Z]+\n>"
         validated_sequence = re.sub(r"\s+", "", sequence)
 
         if not re.fullmatch(pattern, validated_sequence):
-            raise ValueError(f"You can only use standard DNA, RNA, or Protein sequences")
+            raise ValueError(f"Unknown sequence format. Use FASTA with newline characters or raw sequence")
 
         return validated_sequence
     
-    def make_kmers(self):
-        # Makes overlapping kmers of a given length
-        self.kmers = [self.sequence[i:i+self.kmer_length] for i in range(self.length - self.kmer_length + 1)]
+    def make_kmers(self, kmer_length: int = 3,):
+        self.kmers = [self.sequence[i:i+kmer_length] for i in range(self.length - kmer_length + 1)]
         
         return self.kmers
     
+    def parse_fasta(self, sequence):            
+        re_match = re.findall(r">(.[^\n]*)\n([^>]*)", sequence, flags=re.MULTILINE)
+        
+        if len(re_match) > 1:
+            raise ValueError("Multi-record FASTA not supported")
+        
+        for i in re_match:
+            self._sequence_id = i[0]
+            sequence = i[1]
+        
+        return self._sequence_id, sequence
+            
     def fasta(self):
         # Returns a fasta formatted string
-        pass
+        if self._sequence_id is None:
+            print(f">{self.sequence}")
+        else:
+            print(f">{self._sequence_id}\n{self.sequence}")
 
-    
 
 class DNA(Sequence):
     def __init__(self, *args, **kwargs):
@@ -107,10 +123,17 @@ class TableOfValues:
     
 
 def main():
-    query = "To be or not to be that is the question"
+    query = \
+    """
+    >OX724082.1 Severe acute respiratory syndrome coronavirus 2 genome assembly, complete genome: monopartite
+    AGATCTGTTCTCTAAACGAACTTTAAAATCTGTGTGGCTGTCACTCGGCTGCATGCTTAGTGCACTCACG
+    """
     seq = Sequence(query)
-    print(seq.sequence)
-    print(seq.make_kmers())
+    seq.fasta()
+    
+    k = 10
+    kmers = seq.make_kmers(k)
+    print(kmers)
 
 if __name__ == '__main__':
     main()
