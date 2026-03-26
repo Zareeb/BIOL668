@@ -7,10 +7,12 @@ import re
 
 
 class Sequence:
-    def __init__(self, sequence: str = "", *args, **kwargs):
+    def __init__(self, sequence: str = "", gene_id=None, species=None, *args, **kwargs):
         self.sequence_id = None
         self.kmers = []
         self.sequence = sequence
+        self.gene_id = gene_id
+        self.species = species
     
     @property
     def sequence(self) -> str:
@@ -28,6 +30,7 @@ class Sequence:
         if sequence.strip().startswith(">"):            
             seq_id, parsed_seq = self.parse_fasta(sequence)
             self._sequence = self.validate_sequence(parsed_seq)
+            
         else:
             self._sequence = self.validate_sequence(sequence)
                              
@@ -36,13 +39,19 @@ class Sequence:
         
         sequence = sequence.upper()
         
-        pattern = r"^[>A-Z]+$"
+        pattern = r"[A-Z>\-]+$"
         validated_sequence = re.sub(r"\s+", "", sequence)
-
         if not re.fullmatch(pattern, validated_sequence):
             raise ValueError(f"Unknown sequence format. Use FASTA with newline characters or raw sequence")
         
         return validated_sequence
+    
+    def __str__(self):
+        return f"{self.gene_id} {self.species}: {self.sequence}"
+    
+    def print_record(self):
+        "Effectively the same as @property sequence"
+        return self.sequence
     
     def make_kmers(self, kmer_length: int = 3,):
         self.kmers = [self.sequence[i:i+kmer_length] for i in range(self.length - kmer_length + 1)]
@@ -63,11 +72,20 @@ class Sequence:
             
     def fasta(self):
         # Returns a fasta formatted string
-        if self.sequence_id is None:
-            print(f">{self.sequence}")
+        if self.sequence_id is not None:
+            return f">{self.sequence_id}\n{self.sequence}"
+        
+        elif (self.species is None) and (self.gene_id is not None):
+            return f">{self.gene_id}\n{self.sequence}"
+        
+        elif (self.gene_id is None) and (self.species is not None):
+            return f">{self.species}\n{self.sequence}"
+        
+        elif (self.gene_id is not None) and (self.species is not None):
+            return f">{self.gene_id} {self.species}\n{self.sequence}"
+        
         else:
-            print(f">{self.sequence_id}\n{self.sequence}")
-
+            return f">{self.sequence}"
 
 class DNA(Sequence):
     def __init__(self, sequence: str = "", *args, **kwargs):
@@ -75,7 +93,7 @@ class DNA(Sequence):
         
     def validate_sequence(self, sequence: str) -> str:
         sequence = super().validate_sequence(sequence)
-        sequence = re.sub("[^ATGCU]", 'N', sequence)
+        sequence = re.sub("[^ATGCU>]", 'N', sequence)
         
         return sequence
     
@@ -87,7 +105,7 @@ class DNA(Sequence):
         return reverse_complement
     
     def print_info(self):
-        print(f"{self.sequence}")        
+        return f"{self.gene_id} {self.species} {self.sequence}"
         
 class RNA(Sequence):
     def __init__(self, *args, **kwargs):
@@ -153,15 +171,10 @@ def main():
     query1 = "GATTACA"
     
     k = 3
-    # kmers: list = seq.make_kmers(k)
-    # print(kmers)
     
-    dna = DNA("GATTACA")
+    seq = Sequence(query1, "BRCA1", "H. Sapiens")
     
-    reverse_complement = dna.reverse_complement()
-    print(reverse_complement)
-
-    print(dna.print_info())
+    print(seq.fasta())
     
 if __name__ == '__main__':
     main()
