@@ -47,10 +47,12 @@ class Sequence:
         return validated_sequence
     
     def __str__(self):
+        
         return f"{self.gene_id} {self.species}: {self.sequence}"
     
     def print_record(self):
-        "Effectively the same as @property sequence"
+        # EFfectively similar to @property sequence getter
+        
         return self.sequence
     
     def make_kmers(self, kmer_length: int = 3,):
@@ -78,7 +80,7 @@ class Sequence:
         elif (self.species is None) and (self.gene_id is not None):
             return f">{self.gene_id}\n{self.sequence}"
         
-        elif (self.gene_id is None) and (self.species is not None):
+        elif (self.species is not None) and (self.gene_id is None):
             return f">{self.species}\n{self.sequence}"
         
         elif (self.gene_id is not None) and (self.species is not None):
@@ -103,6 +105,27 @@ class DNA(Sequence):
         reverse_complement = complement[::-1]
 
         return reverse_complement
+    
+    def count_bases(self) -> int:
+        counts_dictionary = {base: 0 for base in "ATGCU"}
+        
+        for base in self.sequence:
+            if base in counts_dictionary.keys():
+                counts_dictionary[base] += 1
+                
+        return counts_dictionary
+    
+    def analysis(self) -> float:
+        if self.length == 0:
+            return 0
+        
+        counts = self.count_bases()
+        g_count = counts["G"]
+        c_count = counts["C"]
+        
+        gc_content = (g_count + c_count)/self.length
+
+        return gc_content
     
     def print_info(self):
         return f"{self.gene_id} {self.species} {self.sequence}"
@@ -172,9 +195,10 @@ def main():
     
     k = 3
     
-    seq = Sequence(query1, "BRCA1", "H. Sapiens")
+    dna = DNA(query1, "BRCA1", "H. Sapiens")
     
-    print(seq.fasta())
+    gc_content = dna.analysis()
+    print(gc_content)
     
 if __name__ == '__main__':
     main()
