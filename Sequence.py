@@ -7,7 +7,13 @@ import re
 
 
 class Sequence:
-    def __init__(self, sequence: str = "", gene_name=None, species=None, *args, **kwargs):
+    def __init__(self, sequence: str = "", 
+                 gene_name = None, 
+                 species = None, 
+                 *args, 
+                 **kwargs
+                 ):
+        
         self.sequence_id = None
         self.kmers = []
         self.sequence = sequence
@@ -39,7 +45,7 @@ class Sequence:
         
         sequence = sequence.upper()
         
-        pattern = r"[A-Z>\-]+$"
+        pattern = r"[A-Z>*\-]+$"
         validated_sequence = re.sub(r"\s+", "", sequence)
         if not re.fullmatch(pattern, validated_sequence):
             raise ValueError(f"Unknown sequence format. Use FASTA with newline characters or raw sequence")
@@ -47,8 +53,9 @@ class Sequence:
         return validated_sequence
     
     def __str__(self):
+        headers = " ".join(item for item in (self.gene_name, self.species) if item is not None)
         
-        return f"{self.gene_name} {self.species}: {self.sequence}"
+        return f"{headers}: {self.sequence}"
     
     def print_record(self):
         # EFfectively similar to @property sequence getter
@@ -98,15 +105,21 @@ class DNA(Sequence):
             *args,
             **kwargs)
         self.gene_id = gene_id
+        self.frames = {}
         
     def validate_sequence(self, sequence: str) -> str:
         sequence = super().validate_sequence(sequence)
-        sequence = re.sub("[^ATGCU>]", 'N', sequence)
+        validated_sequence = re.sub("[^ATGCU>]", 'N', sequence)
         
-        return sequence
+        return validated_sequence
     
     def reverse_complement(self) -> str:
-        complement_dictionary = str.maketrans("ATGC", "TACG")
+        if "U" not in self.sequence:
+            complement_dictionary = str.maketrans("ATGC", "TACG")
+        
+        else:          
+            complement_dictionary = str.maketrans("AUGC", "UACG")
+        
         complement = self.sequence.translate(complement_dictionary)
         reverse_complement = complement[::-1]
 
@@ -136,31 +149,165 @@ class DNA(Sequence):
     def six_frames(self):
         forward_sequence = self.sequence
         reverse_sequence = self.reverse_complement()
-        self.six_frames = {}
 
         # Forward sequence
         for i in range(3):
-            self.six_frames[f"F{i + 1}"] = forward_sequence[i:]
+            self.frames[f"F{i + 1}"] = forward_sequence[i:]
 
         # Reverse complement
         for i in range(3):
-            self.six_frames[f"R{i + 1}"] = reverse_sequence[i:]
+            self.frames[f"R{i + 1}"] = reverse_sequence[i:]
 
-        return self.six_frames
+        return self.frames
     
     def print_info(self):
         headers = " ".join(item for item in (self.gene_id, self.species, self.gene_name) if item is not None)
         return f"{headers}: {self.sequence}"
         
-class RNA(Sequence):
-    def __init__(self, *args, **kwargs):
-        pass
+        
+class RNA(DNA):
+    def __init__(self, sequence = "", *args, **kwargs):
+        super().__init__(
+            sequence.replace("T", "U"),
+            *args,
+            **kwargs
+            )
+        self.codons = []
+        
+    def make_codons(self, sequence: str = None):
+        if sequence is None:
+            sequence = self.sequence
+            
+        size = 3
+        codons = []
+        for i in range(0, self.length, size):
+            if len(sequence[i:i + size]) % size == 0:
+                codons.append(sequence[i:i + size])
+                
+        self.codons = codons
+        
+        return codons
+    
+    def translate(self, frames = None):
+        standard_table = TableOfValues().get_standard_code()
+        protein = ""
+        stop_at_stop = False
+        
+        if frames is None:
+            codons = self.make_codons()
+            
+        else:
+            codons = frames
+            
+        for codon in codons:
+            try:
+                aa = standard_table[codon]
+
+            except KeyError:
+                aa = "?"
+
+            if aa != "*":
+                protein += aa
+
+            else:
+                protein += aa
+
+                if stop_at_stop:
+                    return protein
+
+        return protein
+    
+    def find_orf(self):
+        # Assigns sequences
+        forward_sequence = self.sequence
+        reverse_sequence = self.reverse_complement()
+
+        # Stores codons for each reading frame in a dictionary
+        frames = {}
+        translated_frames = {}
+
+        for i in range(3):
+            frames[f"F{i + 1}"] = self.make_codons(sequence=forward_sequence[i:])
+            translated_frames[f"F{i + 1}"] = self.translate(frames=frames[f"F{i + 1}"])
+            
+        for i in range(3):
+            frames[f"R{i + 1}"] = self.make_codons(sequence=reverse_sequence[i:])
+            translated_frames[f"R{i + 1}"] = self.translate(frames=frames[f"R{i + 1}"])
+
+        open_reading_frames = {}
+        
+        for frame in translated_frames:
+            current_sequence = "".join(translated_frames[frame])
+            match = re.search(r"M[A-Z?]+\*", current_sequence)
+
+            try:
+                open_reading_frames[frame] = match.group()
+
+            except AttributeError:
+                open_reading_frames[frame] = ""
+
+        return open_reading_frames
 
 
 class Protein(Sequence):
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, sequence: str = "", *args, **kwargs):
+        super().__init__(
+            sequence,
+            *args,
+            **kwargs
+            )
+        
+    def validate_sequence(self, sequence: str) -> str:
+        sequence = super().validate_sequence(sequence)
+        validated_sequence = re.sub(r"[^ACDEFGHIKLMNPQRSTVWY]", "X", sequence)
+        
+        return validated_sequence
     
+    def total_hydro(self, window: int = None):
+        hscale = TableOfValues.get_kyte_doolittle()
+        protein_sequence = self.sequence
+        
+        hscores_dict = {}
+        
+        if window is not None:
+            
+            j = window 
+            
+            for i in range(0, len(protein_sequence) - window + 1):
+                window_score = 0 # Resets scores
+                
+                for aa in protein_sequence[i:j]:
+                    
+                    if aa in hscale.keys():
+                        window_score += hscale[aa]
+                    else:
+                        window_score =+ 0
+                
+                window_sequence = protein_sequence[i:j]
+                j += 1
+                avereage_hscores = round(window_score/window, 2)
+                
+                hscores_dict[i+1] = (window_sequence, avereage_hscores)
+            
+            return hscores_dict
+        
+        else:
+            total_hscore = 0
+            for aa in protein_sequence:
+                total_hscore += hscale[aa]
+                
+            return total_hscore
+
+    def mol_weight(self):
+        aa_mol_weights = TableOfValues.get_aa_mol_weights()
+        
+        molar_mass  = 0
+        
+        for aa in self.sequence:
+            molar_mass += aa_mol_weights[aa]
+        
+        return molar_mass
+
 
 class TableOfValues:
     standard_code = {
@@ -227,11 +374,40 @@ def main():
     dna2 = DNA(query1, gene_name, species, gene_id)
     dna3 = DNA("GATCTC","my_dna","D.terebrans","AX5667.2")
 
-    six_frames = dna1.six_frames()
+    # six_frames = dna1.six_frames()
+    
+    # for frame, sequence in six_frames.items():
+    #     print(f"{frame}: {sequence}")
+        
+    rna = RNA("CCCTATGAACCCATTGCTTAGGAGAACCGTATGATCCCTAGCTCATTAAGCGTAGAGTGAGGGTTCGAATGTGGAACTGATGCTTATCATTCCTCATCT")
+    
+    six_frames = rna.six_frames()
+    
+    # print(rna.sequence)
+    # print(rna.reverse_complement())
     
     for frame, sequence in six_frames.items():
+        print(f"{frame}: {RNA(sequence).translate()}")
+    
+    translated_protein = rna.translate()
+    print(translated_protein)
+    
+    orf = rna.find_orf()
+    for frame, sequence in orf.items():
         print(f"{frame}: {sequence}")
+    
+    prot = Protein("PMNPLLRRTV*SLAH*A*SEGSNVELMLIIPH")
+    
+    hydropathic_values = prot.total_hydro()
+    hydropathic_values_window = prot.total_hydro(window=5)
 
+    print("\nTotal hydrophobicity score = ", hydropathic_values)
+    
+    print("\nSliding window average hydrophobicity score:")
+    for val in hydropathic_values_window.values():
+        print(f"{val[0]}: {val[1]}")
+        
+    print(f"\nTotal molecular weight = {prot.mol_weight():.2f} g\mol")
     
 if __name__ == '__main__':
     main()
