@@ -1,6 +1,6 @@
 # Name: Zareeb Lorenzana
 # GitHub: Zareeb
-# Repo: tbd
+# Repo: Zareeb/BIOL668
 # Date: 03/24/2026
 
 import re
@@ -133,8 +133,24 @@ class DNA(Sequence):
 
         return f"{gc_content:.4f}"
     
+    def six_frames(self):
+        forward_sequence = self.sequence
+        reverse_sequence = self.reverse_complement()
+        self.six_frames = {}
+
+        # Forward sequence
+        for i in range(3):
+            self.six_frames[f"F{i + 1}"] = forward_sequence[i:]
+
+        # Reverse complement
+        for i in range(3):
+            self.six_frames[f"R{i + 1}"] = reverse_sequence[i:]
+
+        return self.six_frames
+    
     def print_info(self):
-        return f"{self.gene_id} {self.species} {self.gene_name}: {self.sequence}"
+        headers = " ".join(item for item in (self.gene_id, self.species, self.gene_name) if item is not None)
+        return f"{headers}: {self.sequence}"
         
 class RNA(Sequence):
     def __init__(self, *args, **kwargs):
@@ -191,19 +207,31 @@ class TableOfValues:
     
 
 def main():
-    query = \
+    query1 = \
     """
-    >OX724082.1 Severe acute respiratory syndrome coronavirus 2 genome assembly, complete genome: monopartite
-    AGATCTGTTCTCTAAACGAACTTTAAAATCTGTGTGGCTGTCACTCGGCTGCATGCTTAGTGCACTCACG
+    >hg19_refGene_NM_007294 range=chr17:41196312-41277381 5'pad=0 3'pad=0 strand=- repeatMasking=none
+    GCTGAGACTTCCTGGACGGGGGACAGGCTGTGGGGTTTCTCAGATAACTG
+    GGCCCCTGCGCTCAGGAGGCCTTCACCCTCTGCTCTGGGTAAAGgtagta
+    gagtcccgggaaagggacagggggcccaagtgatgctctggggtactggc
     """
     
-    query1 = "GATTACA"
+    query2 = "GCTGAGACTTCCTG"
+    
+    gene_name = "BRCA1"
+    species = "H. sapiens"
+    gene_id = "AX5667.2"
     
     k = 3
     
-    dna = DNA(query1, "BRCA1", "H. Sapiens", "RS1424")
+    dna1 = DNA(query1)
+    dna2 = DNA(query1, gene_name, species, gene_id)
+    dna3 = DNA("GATCTC","my_dna","D.terebrans","AX5667.2")
+
+    six_frames = dna1.six_frames()
     
-    print(dna.print_info())
+    for frame, sequence in six_frames.items():
+        print(f"{frame}: {sequence}")
+
     
 if __name__ == '__main__':
     main()
