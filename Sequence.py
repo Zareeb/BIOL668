@@ -7,11 +7,11 @@ import re
 
 
 class Sequence:
-    def __init__(self, sequence: str = "", gene_id=None, species=None, *args, **kwargs):
+    def __init__(self, sequence: str = "", gene_name=None, species=None, *args, **kwargs):
         self.sequence_id = None
         self.kmers = []
         self.sequence = sequence
-        self.gene_id = gene_id
+        self.gene_name = gene_name
         self.species = species
     
     @property
@@ -48,7 +48,7 @@ class Sequence:
     
     def __str__(self):
         
-        return f"{self.gene_id} {self.species}: {self.sequence}"
+        return f"{self.gene_name} {self.species}: {self.sequence}"
     
     def print_record(self):
         # EFfectively similar to @property sequence getter
@@ -77,21 +77,27 @@ class Sequence:
         if self.sequence_id is not None:
             return f">{self.sequence_id}\n{self.sequence}"
         
-        elif (self.species is None) and (self.gene_id is not None):
-            return f">{self.gene_id}\n{self.sequence}"
+        elif (self.species is None) and (self.gene_name is not None):
+            return f">{self.gene_name}\n{self.sequence}"
         
-        elif (self.species is not None) and (self.gene_id is None):
+        elif (self.species is not None) and (self.gene_name is None):
             return f">{self.species}\n{self.sequence}"
         
-        elif (self.gene_id is not None) and (self.species is not None):
-            return f">{self.gene_id} {self.species}\n{self.sequence}"
+        elif (self.gene_name is not None) and (self.species is not None):
+            return f">{self.gene_name} {self.species}\n{self.sequence}"
         
         else:
             return f">{self.sequence}"
 
 class DNA(Sequence):
-    def __init__(self, sequence: str = "", *args, **kwargs):
-        super().__init__(sequence, *args, **kwargs)
+    def __init__(self, sequence: str = "", gene_name = None, species = None, gene_id = None, *args, **kwargs):
+        super().__init__(
+            sequence,
+            gene_name,
+            species,
+            *args,
+            **kwargs)
+        self.gene_id = gene_id
         
     def validate_sequence(self, sequence: str) -> str:
         sequence = super().validate_sequence(sequence)
@@ -125,10 +131,10 @@ class DNA(Sequence):
         
         gc_content = (g_count + c_count)/self.length
 
-        return gc_content
+        return f"{gc_content:.4f}"
     
     def print_info(self):
-        return f"{self.gene_id} {self.species} {self.sequence}"
+        return f"{self.gene_id} {self.species} {self.gene_name}: {self.sequence}"
         
 class RNA(Sequence):
     def __init__(self, *args, **kwargs):
@@ -195,10 +201,9 @@ def main():
     
     k = 3
     
-    dna = DNA(query1, "BRCA1", "H. Sapiens")
+    dna = DNA(query1, "BRCA1", "H. Sapiens", "RS1424")
     
-    gc_content = dna.analysis()
-    print(gc_content)
+    print(dna.print_info())
     
 if __name__ == '__main__':
     main()
