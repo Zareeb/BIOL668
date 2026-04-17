@@ -91,6 +91,12 @@ class Sequence:
 
         Raises:
             ValueError: If the sequence contains invalid characters.
+
+        Examples:
+            >>> Sequence.validate_sequence(" atgc ")
+            'ATGC'
+            >>> Sequence.validate_sequence("A-T G*C")
+            'A-TG*C'
         """
         
         sequence = sequence.upper()
@@ -155,7 +161,11 @@ class Sequence:
 
         Raises:
             ValueError: If multiple FASTA records are detected.
-        """          
+
+        Examples:
+            >>> Sequence("ATGC").parse_fasta(">seq1\\nATGC")
+            ('seq1', 'ATGC')
+        """      
         re_match = re.findall(r">(.[^\n]*)\n([^>]*)", sequence, flags=re.MULTILINE)
         
         if len(re_match) > 1:
@@ -272,7 +282,7 @@ class DNA(Sequence):
 class RNA(DNA):
     def __init__(self, sequence = "", *args, **kwargs):
         super().__init__(
-            sequence.replace("T", "U"),
+            sequence,
             *args,
             **kwargs
             )
@@ -299,6 +309,13 @@ class RNA(DNA):
         return codons
     
     def translate(self, frames = None):
+        """
+        Examples:
+            >>> RNA("AUGGCCUAA").translate()
+            'MA*'
+            >>> RNA("AUGXXX").translate()
+            'M?'
+        """
         standard_table = TableOfValues().get_standard_code()
         protein = ""
         stop_at_stop = False
@@ -328,6 +345,11 @@ class RNA(DNA):
         return protein
     
     def find_orf(self):
+        """
+        Examples:
+            >>> RNA("CCAUGAAAUAG").find_orf()['F3']
+            'MK*'
+        """
         # Assigns sequences
         forward_sequence = self.sequence
         reverse_sequence = self.reverse_complement()
@@ -374,6 +396,13 @@ class Protein(Sequence):
         return validated_sequence
     
     def total_hydro(self, window: int = None):
+        """
+        Examples:
+            >>> round(Protein("ACD").total_hydro(), 2)
+            0.8
+            >>> Protein("ACDE").total_hydro(window=2)
+            {1: ('AC', 2.15), 2: ('CD', -0.5), 3: ('DE', -3.5)}
+        """
         hscale = TableOfValues.get_kyte_doolittle()
         protein_sequence = self.sequence
         
@@ -523,3 +552,5 @@ def main():
         
 if __name__ == '__main__':
     main()
+    import doctest
+    doctest.testmod(verbose=True)
