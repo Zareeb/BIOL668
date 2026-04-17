@@ -1,10 +1,9 @@
 # Name: Zareeb Lorenzana
 # GitHub: Zareeb
 # Repo: Zareeb/BIOL668
-# Date: 03/24/2026
+# Date: 03/26/2026
 
 import re
-
 
 class Sequence:
     def __init__(self, sequence: str = "", 
@@ -13,7 +12,17 @@ class Sequence:
                  *args, 
                  **kwargs
                  ):
-        
+        """Initializes a Sequence object.
+
+        Assigns the input sequence to the internal sequence attribute using the property setter,
+        which automatically validates and normalizes the sequence. Optionally stores metadata
+        such as gene name and species.
+
+        Args:
+            sequence (str, optional): Input sequence string. Can be a raw sequence or FASTA-formatted string.
+            gene_name (str, optional): Name of the gene associated with the sequence.
+            species (str, optional): Species associated with the sequence.
+        """
         self.sequence_id = None
         self.kmers = []
         self.sequence = sequence
@@ -22,14 +31,41 @@ class Sequence:
     
     @property
     def sequence(self) -> str:
+        """Returns the validated sequence.
+
+        Accesses the internally stored sequence string after validation and normalization.
+
+        Returns:
+        str: The validated sequence.
+        """
         return self._sequence
 
     @property
     def length(self) -> int:
+        """Returns the length of the sequence.
+
+        Calculates the number of characters in the validated sequence.
+
+        Returns:
+            int: Length of the sequence.
+        """
+        
         return len(self._sequence)
     
     @sequence.setter
-    def sequence(self, sequence):
+    def sequence(self, sequence: str):
+        """Sets and validates the sequence.
+
+        Determines whether the input is a FASTA-formatted string or a raw sequence. If FASTA,
+        parses the header and sequence, storing the sequence ID and validating the parsed sequence.
+        Otherwise, directly validates the input sequence.
+
+        Args:
+            sequence (str): Input sequence string.
+
+        Raises:
+            TypeError: If the input is not a string.
+        """
         if not isinstance(sequence, str):
             raise TypeError("Not a string input.")
         
@@ -42,32 +78,84 @@ class Sequence:
                              
     @staticmethod
     def validate_sequence(sequence: str) -> str:
+        """Validates and normalizes a sequence string.
+
+        Converts the sequence to uppercase, removes all whitespace characters, and ensures
+        that the sequence contains only valid characters (A–Z, '*', '>', or '-').
+
+        Args:
+            sequence (str): Input sequence string.
+
+        Returns:
+            str: Cleaned and validated sequence.
+
+        Raises:
+            ValueError: If the sequence contains invalid characters.
+        """
         
         sequence = sequence.upper()
         
-        pattern = r"[A-Z>*\-]+$"
+        pattern = r"[A-Z>?*\-]+$"
         validated_sequence = re.sub(r"\s+", "", sequence)
         if not re.fullmatch(pattern, validated_sequence):
             raise ValueError(f"Unknown sequence format. Use FASTA with newline characters or raw sequence")
         
         return validated_sequence
     
-    def __str__(self):
+    def __str__(self) -> str:
+        """Returns a string representation of the sequence.
+
+        Combines available metadata (gene name and species) with the sequence.
+
+        Returns:
+            str: Formatted string representation.
+        """
         headers = " ".join(item for item in (self.gene_name, self.species) if item is not None)
         
         return f"{headers}: {self.sequence}"
     
-    def print_record(self):
-        # EFfectively similar to @property sequence getter
+    def print_record(self) -> str:
+        """Returns the sequence string.
+
+        Provides access to the sequence similar to the sequence property getter.
+
+        Returns:
+            str: The sequence.
+        """
         
-        return self.sequence
+        # EFfectively similar to @property sequence getter
+        return self.sequence 
     
-    def make_kmers(self, kmer_length: int = 3,):
+    def make_kmers(self, kmer_length: int = 3,) -> list:
+        """Generates k-mers from the sequence.
+
+        Splits the sequence into overlapping substrings of specified length.
+
+        Args:
+            kmer_length (int, optional): Length of each k-mer. Defaults to 3.
+
+        Returns:
+            list: List of k-mer substrings.
+        """
         self.kmers = [self.sequence[i:i+kmer_length] for i in range(self.length - kmer_length + 1)]
         
         return self.kmers
     
-    def parse_fasta(self, sequence):            
+    def parse_fasta(self, sequence: str) -> tuple:
+        """Parses a FASTA-formatted string.
+
+        Extracts the sequence ID from the header line and retrieves the associated sequence.
+        Only single-record FASTA inputs are supported.
+
+        Args:
+            sequence (str): FASTA-formatted string.
+
+        Returns:
+            tuple: (sequence_id, sequence)
+
+        Raises:
+            ValueError: If multiple FASTA records are detected.
+        """          
         re_match = re.findall(r">(.[^\n]*)\n([^>]*)", sequence, flags=re.MULTILINE)
         
         if len(re_match) > 1:
@@ -80,24 +168,40 @@ class Sequence:
         return self.sequence_id, sequence
             
     def fasta(self):
+        """Returns the sequence in FASTA format.
+
+        Constructs a FASTA-formatted string using available metadata in priority order:
+        sequence ID, gene name, species, or the sequence itself.
+
+        Returns:
+            str: FASTA-formatted string.
+        """
+        
         # Returns a fasta formatted string
         if self.sequence_id is not None:
-            return f">{self.sequence_id}\n{self.sequence}"
+            header = self.sequence_id
         
-        elif (self.species is None) and (self.gene_name is not None):
-            return f">{self.gene_name}\n{self.sequence}"
+        elif self.gene_name  and self.species:
+            header = f"{self.gene_name} {self.species}"
+            
+        elif self.gene_name:
+            header = self.gene_name
         
-        elif (self.species is not None) and (self.gene_name is None):
-            return f">{self.species}\n{self.sequence}"
-        
-        elif (self.gene_name is not None) and (self.species is not None):
-            return f">{self.gene_name} {self.species}\n{self.sequence}"
-        
+        elif self.species:
+            header = self.species
+            
         else:
-            return f">{self.sequence}"
+            header = "sequence"
+
+        return f">{header}\n{self.sequence}"
 
 class DNA(Sequence):
-    def __init__(self, sequence: str = "", gene_name = None, species = None, gene_id = None, *args, **kwargs):
+    def __init__(self, sequence: str = "", 
+                 gene_name = None, 
+                 species = None, 
+                 gene_id = None, 
+                 *args, 
+                 **kwargs):
         super().__init__(
             sequence,
             gene_name,
@@ -174,13 +278,19 @@ class RNA(DNA):
             )
         self.codons = []
         
+    def validate_sequence(self, sequence):
+        sequence = super().validate_sequence(sequence)
+        sequence = sequence.replace("T", "U")
+
+        return sequence
+        
     def make_codons(self, sequence: str = None):
         if sequence is None:
             sequence = self.sequence
             
         size = 3
         codons = []
-        for i in range(0, self.length, size):
+        for i in range(0, len(sequence), size):
             if len(sequence[i:i + size]) % size == 0:
                 codons.append(sequence[i:i + size])
                 
@@ -281,13 +391,13 @@ class Protein(Sequence):
                     if aa in hscale.keys():
                         window_score += hscale[aa]
                     else:
-                        window_score =+ 0
+                        window_score += 0
                 
                 window_sequence = protein_sequence[i:j]
                 j += 1
-                avereage_hscores = round(window_score/window, 2)
+                average_hscores = round(window_score/window, 2)
                 
-                hscores_dict[i+1] = (window_sequence, avereage_hscores)
+                hscores_dict[i+1] = (window_sequence, average_hscores)
             
             return hscores_dict
         
@@ -300,7 +410,6 @@ class Protein(Sequence):
 
     def mol_weight(self):
         aa_mol_weights = TableOfValues.get_aa_mol_weights()
-        
         molar_mass  = 0
         
         for aa in self.sequence:
@@ -397,6 +506,7 @@ def main():
         print(f"{frame}: {sequence}")
     
     prot = Protein("PMNPLLRRTV*SLAH*A*SEGSNVELMLIIPH")
+    prot1 = DNA(query1)
     
     hydropathic_values = prot.total_hydro()
     hydropathic_values_window = prot.total_hydro(window=5)
@@ -407,7 +517,9 @@ def main():
     for val in hydropathic_values_window.values():
         print(f"{val[0]}: {val[1]}")
         
-    print(f"\nTotal molecular weight = {prot.mol_weight():.2f} g\mol")
-    
+    print(f"\nTotal molecular weight = {prot.mol_weight():.2f} g/mol")
+    r=RNA(" AUGg?ATATUUTAAGGACctttaGGATCCACUAG ","my_rna","G.gallus","R5990999")
+    print(r)
+        
 if __name__ == '__main__':
     main()
